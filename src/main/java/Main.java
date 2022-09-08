@@ -1,13 +1,14 @@
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 
-import java.util.*;
+import java.util.HashSet;
+import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.stream.Collectors;
 //https://www.linkedin.com/pulse/selenium-parallel-testing-using-java-threadlocal-testng-shargo/
@@ -44,19 +45,6 @@ public class Main {
     }
 
     public static void main(String[] args) {
-//        JsonObject jsonObject = new JsonObject();
-//        JsonObject jsonObject2 = new JsonObject();
-//        JsonObject jsonObject3 = new JsonObject();
-//        JsonObject jsonObject4 = new JsonObject();
-//        jsonObject2.add("root", jsonObject);
-//        jsonObject.add("a", new JsonObject());
-//        jsonObject.add("b", new JsonObject());
-//        jsonObject.add("c", new JsonObject());
-//
-//        Gson gson = new GsonBuilder().setPrettyPrinting().create();
-//        System.out.println(gson.toJson(jsonObject2));
-
-
         System.setProperty("webdriver.chrome.driver", "src\\main\\resources\\chromedriver.exe");
 
         ChromeOptions options = new ChromeOptions();
@@ -65,36 +53,33 @@ public class Main {
 
         driver = new ChromeDriver(options);
 
+//        foundLinks.add(BASE_URL_HTTPS);
+//        foundLinks.add(BASE_URL_HTTP);
 
-
-
-
-        foundLinks.add(BASE_URL_HTTPS);
-        foundLinks.add(BASE_URL_HTTP);
         LinkNode root = new LinkNode(BASE_URL_HTTPS);
         processingLinks.add(root);
 
         while (!processingLinks.isEmpty()) {
             LinkNode currentLinkNode = processingLinks.poll();
+
             driver.get(currentLinkNode.getLink());
-            Set<String> links = getRelativeLinks();
-//            System.out.println("currentLink: " + currentLinkNode.getLink());
-//            System.out.println("foundLinks:");
-            for (String link : links) {
-                if (!foundLinks.contains(link)) {
-                    foundLinks.add(link);
-                    LinkNode child = new LinkNode(link);
-                    currentLinkNode.getChildren().add(child);
-                    currentLinkNode.getJson().add(link, child.getJson());
+            currentLinkNode.setLink(driver.getCurrentUrl());
+
+            System.out.println("currentLinkHierarchy : " + currentLinkNode.getHierarchy());
+
+            for (String link : getRelativeLinks()) {
+                if (!currentLinkNode.existsLinkInHierarchy(link)) {
+//                    foundLinks.add(link);
+                    LinkNode child = new LinkNode(link, currentLinkNode.getHierarchy());
+//                    currentLinkNode.getChildren().add(child);
+//                    currentLinkNode.getJson().add(link, child.getJson());
                     processingLinks.add(child);
-//                    System.out.println("\t " + link);
                 }
             }
-//            System.out.println("--------------------");
         }
 
-        Gson gson = new GsonBuilder().setPrettyPrinting().create();
-        System.out.println(gson.toJson(root.getJson()));
+//        Gson gson = new GsonBuilder().setPrettyPrinting().create();
+//        System.out.println(gson.toJson(root.getJson()));
 
         driver.quit();
 
@@ -102,28 +87,51 @@ public class Main {
 
     private static class LinkNode {
         private String link;
-        private List<LinkNode> children = new ArrayList<>();
-        private JsonObject json = new JsonObject();
+        //        private List<LinkNode> children = new ArrayList<>();
+//        private JsonObject json = new JsonObject();
+        private Set<String> hierarchy;
 
-        public LinkNode(String link){
+        public LinkNode(String link) {
             this.link = link;
+            this.hierarchy = new HashSet<>();
+            this.hierarchy.add(link);
         }
 
-        public List<LinkNode> getChildren(){
-            return children;
+        public LinkNode(String link, Set<String> hierarchy) {
+            this.link = link;
+            this.hierarchy = new HashSet<>(hierarchy);
+            this.hierarchy.add(link);
         }
 
-        public String getLink(){
+//        public List<LinkNode> getChildren() {
+//            return children;
+//        }
+
+        public String getLink() {
             return link;
         }
 
-        public JsonObject getJson(){
-            return json;
+//        public JsonObject getJson() {
+//            return json;
+//        }
+
+        public Set<String> getHierarchy() {
+            return hierarchy;
+        }
+
+        public void setLink(String link) {
+            if (!this.link.equals(link)) {
+                this.hierarchy.remove(this.link);
+                this.link = link;
+                this.hierarchy.add(link);
+            }
+        }
+
+        public boolean existsLinkInHierarchy(String linkToBeChecked) {
+            return hierarchy.contains(linkToBeChecked);
         }
     }
 }
-
-
 
 
 //    public static WebDriver doBrowserSetup(String browserName){
@@ -152,11 +160,6 @@ public class Main {
 //        }
 //        return driver;
 //    }
-
-
-
-
-
 
 
 //    ExecutorService executorService = Executors.newFixedThreadPool(5);
