@@ -1,17 +1,11 @@
+import com.google.gson.JsonObject;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Queue;
-import java.util.Set;
-import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 //https://www.linkedin.com/pulse/selenium-parallel-testing-using-java-threadlocal-testng-shargo/
 //https://github.com/bonigarcia/webdrivermanager
@@ -22,39 +16,10 @@ public class Main {
     private static final String BASE_URL = "tomblomfield.com";
     private static final String BASE_URL_HTTPS = HTTPS + BASE_URL;
     private static final String BASE_URL_HTTP = HTTP + BASE_URL;
-
+    private static final Set<String> foundLinks = new HashSet<>();
+    private static final Queue<LinkNode> processingLinks = new ConcurrentLinkedQueue<>();
     private static WebDriver driver;
     private static ThreadLocal<WebDriver> threadLocal = new ThreadLocal<>();
-
-    private static final Set<String> foundLinks = new HashSet<>();
-    private static final Queue<String> processingLinks = new ConcurrentLinkedQueue<>();
-
-//    public static WebDriver doBrowserSetup(String browserName){
-//
-//        WebDriver driver = null;
-//        if (browserName.equalsIgnoreCase("chrome")){
-//            //steup chrome browser
-//            WebDriverManager.chromedriver().setup();
-//
-//
-//            //Add options for --headed or --headless browser launch
-//            ChromeOptions chromeOptions = new ChromeOptions();
-//            chromeOptions.addArguments("-headed");
-//
-//            //initialize driver for chrome
-//            driver = new ChromeDriver(chromeOptions);
-//
-//            //maximize window
-//            driver.manage().window().maximize();
-//
-//            //add implicit timeout
-//            driver.manage()
-//                    .timeouts()
-//                    .implicitlyWait(Duration.ofSeconds(30));
-//
-//        }
-//        return driver;
-//    }
 
     private static Set<String> getRelativeLinks() {
         return driver.findElements(By.tagName("a")).stream()
@@ -84,30 +49,95 @@ public class Main {
 
         driver = new ChromeDriver(options);
 
+   
         foundLinks.add(BASE_URL_HTTPS);
         foundLinks.add(BASE_URL_HTTP);
-        processingLinks.add(BASE_URL_HTTPS);
+        LinkNode root = new LinkNode(BASE_URL_HTTPS);
+        processingLinks.add(root);
 
-        while(!processingLinks.isEmpty()) {
-            String currentLink = processingLinks.poll();
-            driver.get(currentLink);
+        while (!processingLinks.isEmpty()) {
+            LinkNode currentLinkNode = processingLinks.poll();
+            driver.get(currentLinkNode.getLink());
             Set<String> links = getRelativeLinks();
-            System.out.println("currentLink: " + currentLink);
-            System.out.println("foundLinks:");
-            for (String link: links) {
-                if(!foundLinks.contains(link)) {
+//            System.out.println("currentLink: " + currentLinkNode.getLink());
+//            System.out.println("foundLinks:");
+            for (String link : links) {
+                if (!foundLinks.contains(link)) {
                     foundLinks.add(link);
-                    processingLinks.add(link);
-                    System.out.println("\t " + link);
+                    LinkNode child = new LinkNode(link);
+                    currentLinkNode.getChildren().add(child);
+                    processingLinks.add(child);
+//                    System.out.println("\t " + link);
                 }
             }
-            System.out.println("--------------------");
-
+//            System.out.println("--------------------");
         }
+
+        System.out.println(root);
 
         driver.quit();
     }
+
+    private static class LinkNode {
+        private String link;
+        private List<LinkNode> children = new ArrayList<>();
+
+
+        public LinkNode(String link){
+            this.link = link;
+        }
+
+        public List<LinkNode> getChildren(){
+            return children;
+        }
+
+        public String getLink(){
+            return link;
+        }
+
+        @Override
+        public String toString() {
+            return "LinkNode{" +
+                    "link='" + link + '\'' +
+                    ", children=" + children +
+                    '}';
+        }
+    }
 }
+
+
+
+
+//    public static WebDriver doBrowserSetup(String browserName){
+//
+//        WebDriver driver = null;
+//        if (browserName.equalsIgnoreCase("chrome")){
+//            //steup chrome browser
+//            WebDriverManager.chromedriver().setup();
+//
+//
+//            //Add options for --headed or --headless browser launch
+//            ChromeOptions chromeOptions = new ChromeOptions();
+//            chromeOptions.addArguments("-headed");
+//
+//            //initialize driver for chrome
+//            driver = new ChromeDriver(chromeOptions);
+//
+//            //maximize window
+//            driver.manage().window().maximize();
+//
+//            //add implicit timeout
+//            driver.manage()
+//                    .timeouts()
+//                    .implicitlyWait(Duration.ofSeconds(30));
+//
+//        }
+//        return driver;
+//    }
+
+
+
+
 
 
 
