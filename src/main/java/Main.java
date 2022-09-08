@@ -1,6 +1,7 @@
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
+import io.github.bonigarcia.wdm.WebDriverManager;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
@@ -50,12 +51,9 @@ public class Main {
     }
 
     public static void main(String[] args) throws ExecutionException, InterruptedException {
-        System.setProperty("webdriver.chrome.driver", "src\\main\\resources\\chromedriver.exe");
-
+        WebDriverManager.chromedriver().setup();
         ChromeOptions options = new ChromeOptions();
-//        options.addArguments("start-maximized"); // open Browser in maximized mode
-        options.addArguments("--headless"); // without this it won't start on servers
-
+        options.addArguments("--headless");
         driver = new ChromeDriver(options);
 
         foundLinks.add(BASE_URL_HTTPS);
@@ -73,7 +71,7 @@ public class Main {
 
             for (String link : getAllLinks(driver)) {
                 if (!isLinkAccessibleFromBaseUrl(link)) {
-                    currentLinkNode.addJsonProperty(link, new JsonObject());
+//                    currentLinkNode.addJsonProperty(link, new JsonObject());
                 } else if (!foundLinks.contains(link)) {
                     LinkNode child = new LinkNode(link);
                     currentLinkNode.addJsonProperty(link, child.getJson());
