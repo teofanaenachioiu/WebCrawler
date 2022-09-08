@@ -1,4 +1,7 @@
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
@@ -41,6 +44,19 @@ public class Main {
     }
 
     public static void main(String[] args) {
+//        JsonObject jsonObject = new JsonObject();
+//        JsonObject jsonObject2 = new JsonObject();
+//        JsonObject jsonObject3 = new JsonObject();
+//        JsonObject jsonObject4 = new JsonObject();
+//        jsonObject2.add("root", jsonObject);
+//        jsonObject.add("a", new JsonObject());
+//        jsonObject.add("b", new JsonObject());
+//        jsonObject.add("c", new JsonObject());
+//
+//        Gson gson = new GsonBuilder().setPrettyPrinting().create();
+//        System.out.println(gson.toJson(jsonObject2));
+
+
         System.setProperty("webdriver.chrome.driver", "src\\main\\resources\\chromedriver.exe");
 
         ChromeOptions options = new ChromeOptions();
@@ -49,7 +65,10 @@ public class Main {
 
         driver = new ChromeDriver(options);
 
-   
+
+
+
+
         foundLinks.add(BASE_URL_HTTPS);
         foundLinks.add(BASE_URL_HTTP);
         LinkNode root = new LinkNode(BASE_URL_HTTPS);
@@ -66,6 +85,7 @@ public class Main {
                     foundLinks.add(link);
                     LinkNode child = new LinkNode(link);
                     currentLinkNode.getChildren().add(child);
+                    currentLinkNode.getJson().add(link, child.getJson());
                     processingLinks.add(child);
 //                    System.out.println("\t " + link);
                 }
@@ -73,15 +93,17 @@ public class Main {
 //            System.out.println("--------------------");
         }
 
-        System.out.println(root);
+        Gson gson = new GsonBuilder().setPrettyPrinting().create();
+        System.out.println(gson.toJson(root.getJson()));
 
         driver.quit();
+
     }
 
     private static class LinkNode {
         private String link;
         private List<LinkNode> children = new ArrayList<>();
-
+        private JsonObject json = new JsonObject();
 
         public LinkNode(String link){
             this.link = link;
@@ -95,12 +117,8 @@ public class Main {
             return link;
         }
 
-        @Override
-        public String toString() {
-            return "LinkNode{" +
-                    "link='" + link + '\'' +
-                    ", children=" + children +
-                    '}';
+        public JsonObject getJson(){
+            return json;
         }
     }
 }
