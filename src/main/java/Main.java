@@ -25,31 +25,38 @@ public class Main {
     private static final ThreadLocal<WebDriver> threadLocal = new ThreadLocal<>();
     private static final Semaphore semaphore = new Semaphore(1);
 
-    private static volatile Queue<WebDriver> threadDrivers = new ConcurrentLinkedQueue<>();
-    private static volatile Set<String> foundLinks = new ConcurrentSkipListSet<>();
-    private static volatile Queue<LinkNode> processingLinks = new ConcurrentLinkedQueue<>();
+    private static final Queue<WebDriver> threadDrivers = new ConcurrentLinkedQueue<>();
+    private static final Set<String> foundLinks = new ConcurrentSkipListSet<>();
+    private static final Queue<LinkNode> processingLinks = new ConcurrentLinkedQueue<>();
 
     private static boolean isLinkAccessibleFromBaseUrl(String link) {
         return link.startsWith(BASE_URL_HTTPS) || link.startsWith(BASE_URL_HTTP);
+    }
+
+    private static String removeNoiseFromLink(String linkWithNoise) {
+        String link = linkWithNoise;
+
+        int hashPosition = link.lastIndexOf("#");
+        if (hashPosition > -1) {
+            link = link.substring(0, hashPosition);
+        }
+
+        if (link.endsWith("/")) {
+            link = link.substring(0, link.length() - 1);
+        }
+
+        return link;
     }
 
     private static Set<String> getAllLinks(WebDriver webDriver) {
         return webDriver.findElements(By.tagName("a")).stream()
                 .map(e -> e.getAttribute("href"))
                 .filter(Objects::nonNull)
-                .map(e -> {
-                    int hashPosition = e.lastIndexOf("#");
-                    if (hashPosition > -1) {
-                        return e.substring(0, hashPosition);
-                    }
-                    return e;
-                })
+                .map(Main::removeNoiseFromLink)
                 .collect(Collectors.toSet());
     }
 
     public static void main(String[] args) throws InterruptedException {
-        System.out.println(NUM_THREADS + " threads");
-
         long startTime = System.nanoTime();
 
         WebDriverManager.chromedriver().setup();
@@ -63,8 +70,19 @@ public class Main {
         processingLinks.add(root);
 
         while (!processingLinks.isEmpty() || threadPoolExecutor.getActiveCount() != 0) {
+            /*
+                wait until at least one thread from threadPool is available
+            */
             if (threadPoolExecutor.getActiveCount() == NUM_THREADS) {
                 semaphore.acquire();
+            }
+
+            /*
+                wait 0.5 seconds when the Queue is empty but we still have running threads,
+                and there is a change that they may produce new processingLinks
+            */
+            if (processingLinks.isEmpty() && threadPoolExecutor.getActiveCount() != 0) {
+                Thread.sleep(500L);
             }
 
             threadPoolExecutor.submit(() -> {
@@ -77,6 +95,7 @@ public class Main {
                     threadDrivers.add(threadWebDriver);
                     threadLocal.set(threadWebDriver);
                 }
+
                 WebDriver driver = threadLocal.get();
                 driver.get(currentLinkNode.getLink());
 
@@ -98,13 +117,15 @@ public class Main {
         }
 
         threadDrivers.forEach(WebDriver::quit);
-        threadPoolExecutor.shutdown();
+        threadPoolExecutor.shutdownNow();
 
         Gson gson = new GsonBuilder().setPrettyPrinting().create();
         System.out.println(gson.toJson(root.getJson()));
 
         long stopTime = System.nanoTime();
+
         System.out.println(((double) (stopTime - startTime) / 1_000_000_000L) + " seconds");
+        System.exit(0);
     }
 
     private static class LinkNode {
